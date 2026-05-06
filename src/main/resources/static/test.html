@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>인친소 API 테스터</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap');
+
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #242736;
+    --border: #2e3247;
+    --accent: #6c63ff;
+    --accent2: #ff6584;
+    --green: #43d98c;
+    --red: #ff5f6d;
+    --yellow: #ffd166;
+    --text: #e2e4f0;
+    --text-muted: #7a7f9a;
+    --radius: 12px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans KR', sans-serif;
+    min-height: 100vh;
+    padding: 24px;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 32px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  header h1 {
+    font-size: 22px;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .badge {
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+  }
+
+  .badge-dev { background: rgba(108,99,255,0.2); color: var(--accent); border: 1px solid rgba(108,99,255,0.4); }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 20px;
+    height: calc(100vh - 120px);
+  }
+
+  .sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow-y: auto;
+  }
+
+  .token-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+  }
+
+  .token-section h3 {
+    font-size: 12px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 12px;
+  }
+
+  .token-input-wrap { position: relative; margin-bottom: 8px; }
+
+  .token-input-wrap label {
+    display: block;
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+  }
+
+  textarea, input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    padding: 10px;
+    resize: none;
+    transition: border-color 0.2s;
+  }
+
+  textarea:focus, input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  .token-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    margin-top: 6px;
+  }
+
+  .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+  }
+
+  .dot-green { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .dot-red { background: var(--red); }
+  .dot-gray { background: var(--text-muted); }
+
+  .api-groups { display: flex; flex-direction: column; gap: 8px; }
+
+  .api-group {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  .api-group-header {
+    padding: 12px 16px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    user-select: none;
+    transition: background 0.2s;
+  }
+
+  .api-group-header:hover { background: var(--surface2); }
+
+  .api-group-body { display: none; border-top: 1px solid var(--border); }
+  .api-group-body.open { display: block; }
+
+  .api-item {
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    transition: background 0.15s;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+
+  .api-item:last-child { border-bottom: none; }
+  .api-item:hover { background: var(--surface2); }
+  .api-item.active { background: rgba(108,99,255,0.1); border-left: 3px solid var(--accent); }
+
+  .method {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 4px;
+    min-width: 48px;
+    text-align: center;
+  }
+
+  .GET { background: rgba(67,217,140,0.15); color: var(--green); }
+  .POST { background: rgba(108,99,255,0.15); color: var(--accent); }
+  .PUT { background: rgba(255,209,102,0.15); color: var(--yellow); }
+  .DELETE { background: rgba(255,95,109,0.15); color: var(--red); }
+  .PATCH { background: rgba(255,101,132,0.15); color: var(--accent2); }
+
+  .main-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    overflow-y: auto;
+  }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+  }
+
+  .panel-title {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-bottom: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+  }
+
+  .request-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    padding: 12px 16px;
+    background: var(--surface2);
+    border-radius: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+  }
+
+  .fields { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+
+  .field-row { display: flex; flex-direction: column; gap: 4px; }
+
+  .field-label {
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+
+  .btn {
+    padding: 10px 20px;
+    border-radius: 8px;
+    border: none;
+    font-family: 'Noto Sans KR', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), #8b85ff);
+    color: white;
+    width: 100%;
+  }
+
+  .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+  .btn-primary:active { transform: translateY(0); }
+
+  .response-wrap {
+    position: relative;
+  }
+
+  .response-status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .status-code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 6px;
+  }
+
+  .status-2xx { background: rgba(67,217,140,0.15); color: var(--green); }
+  .status-4xx { background: rgba(255,95,109,0.15); color: var(--red); }
+  .status-5xx { background: rgba(255,209,102,0.15); color: var(--yellow); }
+
+  pre {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    line-height: 1.6;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-height: 400px;
+    overflow-y: auto;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 40px;
+    color: var(--text-muted);
+    font-size: 14px;
+  }
+
+  .chevron { transition: transform 0.2s; }
+  .chevron.open { transform: rotate(180deg); }
+
+  .loading {
+    display: inline-block;
+    width: 16px; height: 16px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .quick-token {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .btn-sm {
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text);
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'Noto Sans KR', sans-serif;
+  }
+
+  .btn-sm:hover { border-color: var(--accent); color: var(--accent); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>인친소 API 테스터</h1>
+  <span class="badge badge-dev">DEV</span>
+  <span style="margin-left:auto; font-size:12px; color:var(--text-muted); font-family:'JetBrains Mono',monospace">localhost:8080</span>
+</header>
+
+<div class="layout">
+  <!-- 사이드바 -->
+  <div class="sidebar">
+    <!-- 토큰 설정 -->
+    <div class="token-section">
+      <h3>토큰 설정</h3>
+      <div class="token-input-wrap">
+        <label>Access Token</label>
+        <textarea id="tokenInput" rows="4" placeholder="Bearer 토큰 붙여넣기..."></textarea>
+      </div>
+      <div class="token-status" id="tokenStatus">
+        <div class="dot dot-gray"></div>
+        <span style="color:var(--text-muted)">토큰 없음</span>
+      </div>
+      <div class="quick-token">
+        <button class="btn-sm" onclick="clearToken()">초기화</button>
+        <button class="btn-sm" onclick="checkToken()">토큰 확인</button>
+      </div>
+    </div>
+
+    <!-- API 목록 -->
+    <div class="api-groups" id="apiGroups"></div>
+  </div>
+
+  <!-- 메인 패널 -->
+  <div class="main-panel">
+    <div class="panel" id="requestPanel">
+      <div class="panel-title">Request</div>
+      <div id="requestContent">
+        <div class="empty-state">← 왼쪽에서 API를 선택하세요</div>
+      </div>
+    </div>
+
+    <div class="panel" id="responsePanel">
+      <div class="panel-title">Response</div>
+      <div id="responseContent">
+        <div class="empty-state">응답이 여기에 표시됩니다</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const BASE_URL = 'http://localhost:8080';
+
+const APIs = [
+  {
+    group: '🔐 Auth',
+    items: [
+      { method: 'POST', path: '/api/auth/onboarding', label: '이름 등록 (온보딩)', auth: true,
+        fields: [{ key: 'name', label: '이름', type: 'text', placeholder: '홍길동' }],
+        bodyFn: (f) => ({ name: f.name })
+      },
+      { method: 'POST', path: '/api/auth/reissue', label: '토큰 재발급', auth: false,
+        fields: [{ key: 'refreshToken', label: 'Refresh Token', type: 'textarea', placeholder: 'refresh token...' }],
+        bodyFn: (f) => ({ refreshToken: f.refreshToken })
+      },
+      { method: 'POST', path: '/api/auth/logout', label: '로그아웃', auth: true, fields: [], bodyFn: () => null },
+    ]
+  },
+  {
+    group: '👤 User',
+    items: [
+      { method: 'GET', path: '/api/users/me', label: '내 정보 조회', auth: true, fields: [], bodyFn: () => null },
+      { method: 'GET', path: '/api/users', label: '전체 회원 목록 (운영진)', auth: true, fields: [], bodyFn: () => null },
+      { method: 'POST', path: '/api/users/{id}/grant-admin', label: '운영진 권한 부여', auth: true,
+        fields: [{ key: 'id', label: 'User ID', type: 'number', placeholder: '2' }],
+        bodyFn: () => null, pathFn: (f) => `/api/users/${f.id}/grant-admin`
+      },
+      { method: 'POST', path: '/api/users/{id}/revoke-admin', label: '운영진 권한 해제', auth: true,
+        fields: [{ key: 'id', label: 'User ID', type: 'number', placeholder: '2' }],
+        bodyFn: () => null, pathFn: (f) => `/api/users/${f.id}/revoke-admin`
+      },
+      { method: 'DELETE', path: '/api/users/{id}', label: '회원 삭제', auth: true,
+        fields: [{ key: 'id', label: 'User ID', type: 'number', placeholder: '2' }],
+        bodyFn: () => null, pathFn: (f) => `/api/users/${f.id}`
+      },
+    ]
+  },
+  {
+    group: '📅 Session (모임)',
+    items: [
+      { method: 'GET', path: '/api/clubs/{clubId}/sessions', label: '월별 모임 조회', auth: true,
+        fields: [
+          { key: 'clubId', label: 'Club ID', type: 'number', placeholder: '1' },
+          { key: 'year', label: '년도', type: 'number', placeholder: '2026' },
+          { key: 'month', label: '월', type: 'number', placeholder: '5' },
+        ],
+        bodyFn: () => null,
+        pathFn: (f) => `/api/clubs/${f.clubId}/sessions?year=${f.year}&month=${f.month}`
+      },
+      { method: 'GET', path: '/api/clubs/{clubId}/sessions/{sessionId}', label: '모임 상세 조회', auth: true,
+        fields: [
+          { key: 'clubId', label: 'Club ID', type: 'number', placeholder: '1' },
+          { key: 'sessionId', label: 'Session ID', type: 'number', placeholder: '1' },
+        ],
+        bodyFn: () => null,
+        pathFn: (f) => `/api/clubs/${f.clubId}/sessions/${f.sessionId}`
+      },
+      { method: 'POST', path: '/api/clubs/{clubId}/sessions', label: '모임 생성 (운영진)', auth: true,
+        fields: [
+          { key: 'clubId', label: 'Club ID', type: 'number', placeholder: '1' },
+          { key: 'sessionDate', label: '날짜', type: 'text', placeholder: '2026-05-20' },
+          { key: 'startTime', label: '시작 시간', type: 'text', placeholder: '18:00:00' },
+          { key: 'endTime', label: '종료 시간', type: 'text', placeholder: '21:00:00' },
+          { key: 'location', label: '장소', type: 'text', placeholder: '인천대 체육관' },
+          { key: 'rules', label: '수칙', type: 'text', placeholder: '개인 셔틀콕 지참' },
+          { key: 'maxParticipants', label: '최대 인원', type: 'number', placeholder: '16' },
+        ],
+        bodyFn: (f) => ({
+          sessionDate: f.sessionDate, startTime: f.startTime, endTime: f.endTime,
+          location: f.location, rules: f.rules, maxParticipants: parseInt(f.maxParticipants)
+        }),
+        pathFn: (f) => `/api/clubs/${f.clubId}/sessions`
+      },
+      { method: 'DELETE', path: '/api/clubs/{clubId}/sessions/{sessionId}', label: '모임 삭제 (운영진)', auth: true,
+        fields: [
+          { key: 'clubId', label: 'Club ID', type: 'number', placeholder: '1' },
+          { key: 'sessionId', label: 'Session ID', type: 'number', placeholder: '1' },
+        ],
+        bodyFn: () => null,
+        pathFn: (f) => `/api/clubs/${f.clubId}/sessions/${f.sessionId}`
+      },
+      { method: 'GET', path: '/api/clubs/{clubId}/sessions/{sessionId}/participants', label: '참가자 명단 (운영진)', auth: true,
+        fields: [
+          { key: 'clubId', label: 'Club ID', type: 'number', placeholder: '1' },
+          { key: 'sessionId', label: 'Session ID', type: 'number', placeholder: '1' },
+        ],
+        bodyFn: () => null,
+        pathFn: (f) => `/api/clubs/${f.clubId}/sessions/${f.sessionId}/participants`
+      },
+    ]
+  },
+  {
+    group: '🙋 Participation (참가)',
+    items: [
+      { method: 'POST', path: '/api/sessions/{sessionId}/participations', label: '참가 신청', auth: true,
+        fields: [{ key: 'sessionId', label: 'Session ID', type: 'number', placeholder: '1' }],
+        bodyFn: () => null, pathFn: (f) => `/api/sessions/${f.sessionId}/participations`
+      },
+      { method: 'DELETE', path: '/api/sessions/{sessionId}/participations', label: '참가 취소', auth: true,
+        fields: [{ key: 'sessionId', label: 'Session ID', type: 'number', placeholder: '1' }],
+        bodyFn: () => null, pathFn: (f) => `/api/sessions/${f.sessionId}/participations`
+      },
+      { method: 'GET', path: '/api/sessions/{sessionId}/participations/me', label: '내 신청 여부', auth: true,
+        fields: [{ key: 'sessionId', label: 'Session ID', type: 'number', placeholder: '1' }],
+        bodyFn: () => null, pathFn: (f) => `/api/sessions/${f.sessionId}/participations/me`
+      },
+    ]
+  },
+  {
+    group: '🏸 Court (코트)',
+    items: [
+      { method: 'GET', path: '/api/sessions/{sessionId}/courts', label: '코트 배정 조회', auth: true,
+        fields: [{ key: 'sessionId', label: 'Session ID', type: 'number', placeholder: '1' }],
+        bodyFn: () => null, pathFn: (f) => `/api/sessions/${f.sessionId}/courts`
+      },
+      { method: 'POST', path: '/api/sessions/{sessionId}/courts', label: '코트 배정 (운영진)', auth: true,
+        fields: [
+          { key: 'sessionId', label: 'Session ID', type: 'number', placeholder: '1' },
+          { key: 'assignments', label: 'JSON 배열', type: 'textarea',
+            placeholder: '[{"userId":1,"courtNumber":1,"matchType":"DOUBLES"}]' }
+        ],
+        bodyFn: (f) => JSON.parse(f.assignments || '[]'),
+        pathFn: (f) => `/api/sessions/${f.sessionId}/courts`,
+        rawBody: true
+      },
+      { method: 'DELETE', path: '/api/sessions/{sessionId}/courts', label: '코트 배정 초기화', auth: true,
+        fields: [{ key: 'sessionId', label: 'Session ID', type: 'number', placeholder: '1' }],
+        bodyFn: () => null, pathFn: (f) => `/api/sessions/${f.sessionId}/courts`
+      },
+    ]
+  },
+  {
+    group: '📢 Notice (공지)',
+    items: [
+      { method: 'GET', path: '/api/clubs/{clubId}/notices', label: '공지사항 목록', auth: true,
+        fields: [{ key: 'clubId', label: 'Club ID', type: 'number', placeholder: '1' }],
+        bodyFn: () => null, pathFn: (f) => `/api/clubs/${f.clubId}/notices`
+      },
+      { method: 'POST', path: '/api/clubs/{clubId}/notices', label: '공지 작성 (운영진)', auth: true,
+        fields: [
+          { key: 'clubId', label: 'Club ID', type: 'number', placeholder: '1' },
+          { key: 'title', label: '제목', type: 'text', placeholder: '5월 모임 안내' },
+          { key: 'content', label: '내용', type: 'textarea', placeholder: '이번 모임은...' },
+          { key: 'pinned', label: '상단 고정 (true/false)', type: 'text', placeholder: 'false' },
+        ],
+        bodyFn: (f) => ({ title: f.title, content: f.content, pinned: f.pinned === 'true' }),
+        pathFn: (f) => `/api/clubs/${f.clubId}/notices`,
+        formData: true
+      },
+      { method: 'DELETE', path: '/api/clubs/{clubId}/notices/{noticeId}', label: '공지 삭제 (운영진)', auth: true,
+        fields: [
+          { key: 'clubId', label: 'Club ID', type: 'number', placeholder: '1' },
+          { key: 'noticeId', label: 'Notice ID', type: 'number', placeholder: '1' },
+        ],
+        bodyFn: () => null, pathFn: (f) => `/api/clubs/${f.clubId}/notices/${f.noticeId}`
+      },
+    ]
+  },
+  {
+    group: '❤️ Health',
+    items: [
+      { method: 'GET', path: '/api/health', label: '헬스체크', auth: false, fields: [], bodyFn: () => null },
+    ]
+  }
+];
+
+let selectedApi = null;
+
+// 토큰 관련
+function getToken() { return document.getElementById('tokenInput').value.trim(); }
+function clearToken() {
+  document.getElementById('tokenInput').value = '';
+  updateTokenStatus();
+}
+function checkToken() {
+  const t = getToken();
+  if (!t) { updateTokenStatus(); return; }
+  try {
+    const parts = t.split('.');
+    if (parts.length !== 3) throw new Error();
+    const payload = JSON.parse(atob(parts[1]));
+    const exp = payload.exp ? new Date(payload.exp * 1000) : null;
+    const now = new Date();
+    const expired = exp && exp < now;
+    const el = document.getElementById('tokenStatus');
+    el.innerHTML = `
+      <div class="dot ${expired ? 'dot-red' : 'dot-green'}"></div>
+      <span style="color:${expired ? 'var(--red)' : 'var(--green)'}">
+        ${expired ? '만료됨' : '유효'} | sub:${payload.sub} | role:${payload.role}
+        ${exp ? `| 만료: ${exp.toLocaleTimeString('ko-KR')}` : ''}
+      </span>`;
+  } catch {
+    document.getElementById('tokenStatus').innerHTML =
+      `<div class="dot dot-red"></div><span style="color:var(--red)">유효하지 않은 토큰</span>`;
+  }
+}
+function updateTokenStatus() {
+  const t = getToken();
+  document.getElementById('tokenStatus').innerHTML = t
+    ? `<div class="dot dot-yellow" style="background:var(--yellow)"></div><span style="color:var(--yellow)">토큰 입력됨 (확인 버튼 클릭)</span>`
+    : `<div class="dot dot-gray"></div><span style="color:var(--text-muted)">토큰 없음</span>`;
+}
+document.getElementById('tokenInput').addEventListener('input', updateTokenStatus);
+
+// API 목록 렌더링
+function renderApiGroups() {
+  const container = document.getElementById('apiGroups');
+  APIs.forEach((group, gi) => {
+    const el = document.createElement('div');
+    el.className = 'api-group';
+    el.innerHTML = `
+      <div class="api-group-header" onclick="toggleGroup(${gi})">
+        <span>${group.group}</span>
+        <span class="chevron" id="chevron-${gi}">▾</span>
+      </div>
+      <div class="api-group-body" id="group-body-${gi}">
+        ${group.items.map((item, ii) => `
+          <div class="api-item" id="api-${gi}-${ii}" onclick="selectApi(${gi},${ii})">
+            <span class="method ${item.method}">${item.method}</span>
+            <span>${item.label}</span>
+          </div>
+        `).join('')}
+      </div>`;
+    container.appendChild(el);
+  });
+}
+
+function toggleGroup(gi) {
+  const body = document.getElementById(`group-body-${gi}`);
+  const chevron = document.getElementById(`chevron-${gi}`);
+  body.classList.toggle('open');
+  chevron.classList.toggle('open');
+}
+
+function selectApi(gi, ii) {
+  document.querySelectorAll('.api-item').forEach(el => el.classList.remove('active'));
+  document.getElementById(`api-${gi}-${ii}`).classList.add('active');
+  selectedApi = APIs[gi].items[ii];
+  renderRequestPanel();
+  document.getElementById('responseContent').innerHTML = '<div class="empty-state">Execute를 눌러 요청하세요</div>';
+}
+
+function renderRequestPanel() {
+  const api = selectedApi;
+  const fields = api.fields || [];
+  document.getElementById('requestContent').innerHTML = `
+    <div class="request-info">
+      <span class="method ${api.method}">${api.method}</span>
+      <span style="font-size:13px">${api.path}</span>
+      ${api.auth ? '<span class="badge badge-dev" style="margin-left:auto">🔒 인증 필요</span>' : ''}
+    </div>
+    <div class="fields">
+      ${fields.map(f => `
+        <div class="field-row">
+          <label class="field-label">${f.label}</label>
+          ${f.type === 'textarea'
+            ? `<textarea id="field-${f.key}" rows="3" placeholder="${f.placeholder || ''}"></textarea>`
+            : `<input id="field-${f.key}" type="${f.type}" placeholder="${f.placeholder || ''}">`
+          }
+        </div>
+      `).join('')}
+    </div>
+    <button class="btn btn-primary" onclick="executeApi()">▶ Execute</button>
+  `;
+}
+
+async function executeApi() {
+  const api = selectedApi;
+  if (!api) return;
+
+  const fields = {};
+  (api.fields || []).forEach(f => {
+    const el = document.getElementById(`field-${f.key}`);
+    if (el) fields[f.key] = el.value;
+  });
+
+  const path = api.pathFn ? api.pathFn(fields) : api.path;
+  const url = BASE_URL + path;
+  const token = getToken();
+
+  const headers = {};
+  if (api.auth && token) headers['Authorization'] = `Bearer ${token}`;
+
+  let body = null;
+  if (api.bodyFn) {
+    const b = api.bodyFn(fields);
+    if (b !== null) {
+      if (api.formData) {
+        const fd = new FormData();
+        Object.entries(b).forEach(([k, v]) => fd.append(k, v));
+        body = fd;
+      } else {
+        headers['Content-Type'] = 'application/json';
+        body = JSON.stringify(b);
+      }
+    }
+  }
+
+  document.getElementById('responseContent').innerHTML = '<div style="display:flex;align-items:center;gap:10px;padding:20px"><div class="loading"></div><span style="color:var(--text-muted)">요청 중...</span></div>';
+
+  const start = Date.now();
+  try {
+    const res = await fetch(url, { method: api.method, headers, body });
+    const elapsed = Date.now() - start;
+    let data;
+    const ct = res.headers.get('content-type') || '';
+    if (ct.includes('json')) data = await res.json();
+    else data = await res.text();
+
+    const statusClass = res.status < 300 ? 'status-2xx' : res.status < 500 ? 'status-4xx' : 'status-5xx';
+    document.getElementById('responseContent').innerHTML = `
+      <div class="response-status">
+        <span class="status-code ${statusClass}">${res.status}</span>
+        <span style="color:var(--text-muted);font-size:12px">${res.statusText} · ${elapsed}ms</span>
+      </div>
+      <pre>${typeof data === 'object' ? JSON.stringify(data, null, 2) : data}</pre>
+    `;
+  } catch (e) {
+    document.getElementById('responseContent').innerHTML = `
+      <div class="response-status">
+        <span class="status-code status-5xx">ERROR</span>
+      </div>
+      <pre>${e.message}</pre>
+    `;
+  }
+}
+
+renderApiGroups();
+// 첫 번째 그룹 열기
+toggleGroup(6);
+</script>
+</body>
+</html>
