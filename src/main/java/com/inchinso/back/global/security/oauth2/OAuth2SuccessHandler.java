@@ -23,7 +23,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
     private final JwtProvider jwtProvider;
     private final StringRedisTemplate redisTemplate;
 
-    @Value("${app.frontend-url:http://localhost:3000}")
+    @Value("${FRONTEND_URL:http://localhost:3000}")
     private String frontendUrl;
 
     @Override
@@ -36,7 +36,6 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         String accessToken = jwtProvider.generateAccessToken(user.getId(), user.getRole().name());
         String refreshToken = jwtProvider.generateRefreshToken(user.getId());
 
-        // Redis에 Refresh Token 저장
         redisTemplate.opsForValue().set(
                 "refresh:" + user.getId(),
                 refreshToken,
