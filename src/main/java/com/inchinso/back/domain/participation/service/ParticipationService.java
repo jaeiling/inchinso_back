@@ -11,7 +11,6 @@ import com.inchinso.back.domain.user.repository.UserRepository;
 import com.inchinso.back.global.exception.CustomException;
 import com.inchinso.back.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
-import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,9 +24,6 @@ public class ParticipationService {
     private final BadmintonSessionRepository sessionRepository;
     private final UserRepository userRepository;
 
-    /**
-     * 참가 신청 - 동시성 처리 (비관적 락)
-     */
     @Transactional
     public void apply(Long userId, Long sessionId) {
         BadmintonSession session = sessionRepository.findById(sessionId)
@@ -38,18 +34,25 @@ public class ParticipationService {
             throw new CustomException(ErrorCode.SESSION_CLOSED);
         }
 
-        // 중복 신청 확인
         Optional<Participation> existing =
                 participationRepository.findBySessionIdAndUserId(sessionId, userId);
 
         if (existing.isPresent()) {
-            if (existing.get().getStatus() == ParticipationStatus.CONFIRMED) {
+            Participation p = existing.get();
+            if (p.getStatus() == ParticipationStatus.CONFIRMED) {
+                // 이미 신청 완료 상태
                 throw new CustomException(ErrorCode.ALREADY_PARTICIPATED);
             }
-            // 취소했다가 재신청하는 경우
+            // 취소했다가 재신청: status만 CONFIRMED로 업데이트 (새로 insert 안 함)
+            int currentCount = participationRepository.countConfirmedBySessionId(sessionId);
+            if (currentCount >= session.getMaxParticipants()) {
+                throw new CustomException(ErrorCode.SESSION_FULL);
+            }
+            p.reactivate();
+            return;
         }
 
-        // 정원 확인 (select for update로 동시성 처리)
+        // 최초 신청
         int currentCount = participationRepository.countConfirmedBySessionId(sessionId);
         if (currentCount >= session.getMaxParticipants()) {
             throw new CustomException(ErrorCode.SESSION_FULL);
@@ -58,12 +61,6 @@ public class ParticipationService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        if (existing.isPresent()) {
-            // 재신청: 상태만 CONFIRMED로 (cancel 후 재신청)
-            // 실제로는 새로 저장
-            participationRepository.delete(existing.get());
-        }
-
         Participation participation = Participation.builder()
                 .session(session)
                 .user(user)
@@ -71,9 +68,6 @@ public class ParticipationService {
         participationRepository.save(participation);
     }
 
-    /**
-     * 참가 취소
-     */
     @Transactional
     public void cancel(Long userId, Long sessionId) {
         Participation participation = participationRepository
@@ -87,9 +81,6 @@ public class ParticipationService {
         participation.cancel();
     }
 
-    /**
-     * 내 신청 여부 확인
-     */
     @Transactional(readOnly = true)
     public boolean isApplied(Long userId, Long sessionId) {
         return participationRepository.findBySessionIdAndUserId(sessionId, userId)

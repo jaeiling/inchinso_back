@@ -40,4 +40,8 @@ public class Participation {
     public void cancel() {
         this.status = ParticipationStatus.CANCELLED;
     }
+
+    public void reactivate() {
+        this.status = ParticipationStatus.CONFIRMED;
+    }
 }
