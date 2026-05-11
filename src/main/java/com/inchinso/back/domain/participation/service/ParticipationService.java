@@ -14,6 +14,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -40,10 +42,8 @@ public class ParticipationService {
         if (existing.isPresent()) {
             Participation p = existing.get();
             if (p.getStatus() == ParticipationStatus.CONFIRMED) {
-                // 이미 신청 완료 상태
                 throw new CustomException(ErrorCode.ALREADY_PARTICIPATED);
             }
-            // 취소했다가 재신청: status만 CONFIRMED로 업데이트 (새로 insert 안 함)
             int currentCount = participationRepository.countConfirmedBySessionId(sessionId);
             if (currentCount >= session.getMaxParticipants()) {
                 throw new CustomException(ErrorCode.SESSION_FULL);
@@ -52,7 +52,6 @@ public class ParticipationService {
             return;
         }
 
-        // 최초 신청
         int currentCount = participationRepository.countConfirmedBySessionId(sessionId);
         if (currentCount >= session.getMaxParticipants()) {
             throw new CustomException(ErrorCode.SESSION_FULL);
@@ -61,11 +60,10 @@ public class ParticipationService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        Participation participation = Participation.builder()
+        participationRepository.save(Participation.builder()
                 .session(session)
                 .user(user)
-                .build();
-        participationRepository.save(participation);
+                .build());
     }
 
     @Transactional
@@ -87,4 +85,25 @@ public class ParticipationService {
                 .map(p -> p.getStatus() == ParticipationStatus.CONFIRMED)
                 .orElse(false);
     }
+
+    /**
+     * 일반 회원용 참가자 목록 조회
+     * - 본인 이름은 표시, 다른 참가자는 익명(참가자 N)으로 표시
+     */
+    @Transactional(readOnly = true)
+    public List<ParticipantPublicResponse> getParticipantsPublic(Long sessionId, Long myUserId) {
+        List<Participation> confirmed = participationRepository
+                .findBySessionIdAndStatus(sessionId, ParticipationStatus.CONFIRMED);
+
+        List<ParticipantPublicResponse> result = new ArrayList<>();
+        int order = 1;
+        for (Participation p : confirmed) {
+            boolean isMe = p.getUser().getId().equals(myUserId);
+            String displayName = isMe ? p.getUser().getName() : null;
+            result.add(new ParticipantPublicResponse(order++, displayName, isMe));
+        }
+        return result;
+    }
+
+    public record ParticipantPublicResponse(int order, String name, boolean isMe) {}
 }
