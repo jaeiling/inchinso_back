@@ -1,5 +1,7 @@
 package com.inchinso.back.global.config;
 
+import com.inchinso.back.global.security.handler.CustomAccessDeniedHandler;
+import com.inchinso.back.global.security.handler.CustomAuthenticationEntryPoint;
 import com.inchinso.back.global.security.jwt.JwtAuthenticationFilter;
 import com.inchinso.back.global.security.jwt.JwtProvider;
 import com.inchinso.back.global.security.oauth2.CustomOAuth2UserService;
@@ -29,6 +31,8 @@ public class SecurityConfig {
     private final JwtProvider jwtProvider;
     private final CustomOAuth2UserService oAuth2UserService;
     private final OAuth2SuccessHandler oAuth2SuccessHandler;
+    private final CustomAccessDeniedHandler accessDeniedHandler;
+    private final CustomAuthenticationEntryPoint authenticationEntryPoint;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -37,6 +41,10 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint(authenticationEntryPoint)
+                        .accessDeniedHandler(accessDeniedHandler)
+                )
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/api/auth/**",

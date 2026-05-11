@@ -54,8 +54,25 @@ public class JwtProvider {
         try {
             Jwts.parser().verifyWith(key).build().parseSignedClaims(token);
             return true;
+        } catch (ExpiredJwtException e) {
+            log.warn("Expired JWT token: {}", e.getMessage());
+            return false;
         } catch (JwtException | IllegalArgumentException e) {
             log.warn("Invalid JWT token: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * 토큰이 만료된 건지 확인 (유효하지 않은 것과 구분)
+     */
+    public boolean isExpired(String token) {
+        try {
+            Jwts.parser().verifyWith(key).build().parseSignedClaims(token);
+            return false;
+        } catch (ExpiredJwtException e) {
+            return true;
+        } catch (JwtException | IllegalArgumentException e) {
             return false;
         }
     }
