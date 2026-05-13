@@ -29,7 +29,8 @@ public class ParticipationService {
 
     @Transactional
     public void apply(Long userId, Long sessionId) {
-        BadmintonSession session = sessionRepository.findById(sessionId)
+        // 비관적 락으로 세션 조회 - 동시 신청 방지
+        BadmintonSession session = sessionRepository.findByIdWithLock(sessionId)
                 .orElseThrow(() -> new CustomException(ErrorCode.SESSION_NOT_FOUND));
 
         if (session.getStatus() == SessionStatus.CLOSED ||
@@ -48,66 +49,92 @@ public class ParticipationService {
 
         if (existing.isPresent()) {
             Participation p = existing.get();
-            if (p.getStatus() == ParticipationStatus.CONFIRMED) {
+            if (p.getStatus() == ParticipationStatus.CONFIRMED ||
+                p.getStatus() == ParticipationStatus.WAITING) {
                 throw new CustomException(ErrorCode.ALREADY_PARTICIPATED);
             }
+            // 취소 후 재신청
             int currentCount = participationRepository.countConfirmedBySessionId(sessionId);
             if (currentCount >= session.getMaxParticipants()) {
-                throw new CustomException(ErrorCode.SESSION_FULL);
+                // 정원 초과 → 대기자로 재신청
+                p.reactivateAsWaiting();
+            } else {
+                p.reactivate();
             }
-            p.reactivate();
             return;
-        }
-
-        int currentCount = participationRepository.countConfirmedBySessionId(sessionId);
-        if (currentCount >= session.getMaxParticipants()) {
-            throw new CustomException(ErrorCode.SESSION_FULL);
         }
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
+        int currentCount = participationRepository.countConfirmedBySessionId(sessionId);
+        ParticipationStatus status = currentCount >= session.getMaxParticipants()
+                ? ParticipationStatus.WAITING
+                : ParticipationStatus.CONFIRMED;
+
         participationRepository.save(Participation.builder()
                 .session(session)
                 .user(user)
+                .status(status)
                 .build());
     }
 
     @Transactional
     public void cancel(Long userId, Long sessionId) {
+        // 비관적 락으로 세션 조회 - 취소 시 대기자 승격 동시성 처리
+        BadmintonSession session = sessionRepository.findByIdWithLock(sessionId)
+                .orElseThrow(() -> new CustomException(ErrorCode.SESSION_NOT_FOUND));
+
         Participation participation = participationRepository
                 .findBySessionIdAndUserId(sessionId, userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.PARTICIPATION_NOT_FOUND));
 
-        if (participation.getStatus() != ParticipationStatus.CONFIRMED) {
+        if (participation.getStatus() == ParticipationStatus.CANCELLED) {
             throw new CustomException(ErrorCode.NOT_PARTICIPATED);
         }
 
+        boolean wasConfirmed = participation.getStatus() == ParticipationStatus.CONFIRMED;
         participation.cancel();
+
+        // 확정 참가자가 취소한 경우 → 대기자 1순위 자동 승격
+        if (wasConfirmed) {
+            List<Participation> waiting =
+                    participationRepository.findWaitingBySessionIdOrderByCreatedAt(sessionId);
+            if (!waiting.isEmpty()) {
+                waiting.get(0).promoteToConfirmed();
+            }
+        }
     }
 
     @Transactional(readOnly = true)
     public boolean isApplied(Long userId, Long sessionId) {
         return participationRepository.findBySessionIdAndUserId(sessionId, userId)
-                .map(p -> p.getStatus() == ParticipationStatus.CONFIRMED)
+                .map(p -> p.getStatus() == ParticipationStatus.CONFIRMED ||
+                          p.getStatus() == ParticipationStatus.WAITING)
                 .orElse(false);
     }
 
     @Transactional(readOnly = true)
     public List<ParticipantPublicResponse> getParticipantsPublic(Long sessionId, Long myUserId) {
-        List<Participation> confirmed = participationRepository
-                .findBySessionIdAndStatus(sessionId, ParticipationStatus.CONFIRMED);
+        // CONFIRMED 먼저, 그 다음 WAITING 순으로 조회
+        List<Participation> active = participationRepository.findActiveBySessionId(sessionId);
 
         List<ParticipantPublicResponse> result = new ArrayList<>();
-        int order = 1;
-        for (Participation p : confirmed) {
+        int confirmedOrder = 1;
+        int waitingOrder = 1;
+
+        for (Participation p : active) {
             boolean isMe = p.getUser().getId().equals(myUserId);
+            boolean isWaiting = p.getStatus() == ParticipationStatus.WAITING;
+
+            int order = isWaiting ? waitingOrder++ : confirmedOrder++;
+
             result.add(new ParticipantPublicResponse(
-                    order++,
+                    order,
                     isMe ? p.getUser().getId() : null,
                     isMe ? p.getUser().getName() : null,
                     isMe,
-                    "CONFIRMED"
+                    p.getStatus().name()
             ));
         }
         return result;

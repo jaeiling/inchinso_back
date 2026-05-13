@@ -44,4 +44,12 @@ public class Participation {
     public void reactivate() {
         this.status = ParticipationStatus.CONFIRMED;
     }
+
+    public void reactivateAsWaiting() {
+        this.status = ParticipationStatus.WAITING;
+    }
+
+    public void promoteToConfirmed() {
+        this.status = ParticipationStatus.CONFIRMED;
+    }
 }
