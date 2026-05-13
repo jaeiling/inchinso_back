@@ -3,6 +3,8 @@ package com.inchinso.back.domain.user.controller;
 import com.inchinso.back.domain.user.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -24,6 +26,15 @@ public class UserController {
     public ResponseEntity<UserService.MyInfoResponse> getMyInfo(
             @AuthenticationPrincipal Long userId) {
         return ResponseEntity.ok(userService.getMyInfo(userId));
+    }
+
+    @Operation(summary = "내 이름 수정")
+    @PatchMapping("/me")
+    public ResponseEntity<Void> updateMyName(
+            @AuthenticationPrincipal Long userId,
+            @Valid @RequestBody UpdateNameRequest req) {
+        userService.updateMyName(userId, req.name());
+        return ResponseEntity.ok().build();
     }
 
     @Operation(summary = "전체 회원 목록 조회 (운영진)")
@@ -68,4 +79,8 @@ public class UserController {
         userService.revokeAdmin(targetUserId);
         return ResponseEntity.ok().build();
     }
+
+    public record UpdateNameRequest(
+            @NotBlank(message = "이름을 입력해주세요.") String name
+    ) {}
 }

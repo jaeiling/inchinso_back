@@ -14,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -34,6 +35,12 @@ public class ParticipationService {
         if (session.getStatus() == SessionStatus.CLOSED ||
             session.getStatus() == SessionStatus.CANCELLED) {
             throw new CustomException(ErrorCode.SESSION_CLOSED);
+        }
+
+        // 오픈 시간 체크 (null이면 즉시 오픈)
+        if (session.getOpenAt() != null &&
+            LocalDateTime.now().isBefore(session.getOpenAt())) {
+            throw new CustomException(ErrorCode.PARTICIPATION_NOT_OPEN);
         }
 
         Optional<Participation> existing =
@@ -86,10 +93,6 @@ public class ParticipationService {
                 .orElse(false);
     }
 
-    /**
-     * 일반 회원용 참가자 목록 조회
-     * - 본인 이름은 표시, 다른 참가자는 익명(참가자 N)으로 표시
-     */
     @Transactional(readOnly = true)
     public List<ParticipantPublicResponse> getParticipantsPublic(Long sessionId, Long myUserId) {
         List<Participation> confirmed = participationRepository
@@ -99,11 +102,22 @@ public class ParticipationService {
         int order = 1;
         for (Participation p : confirmed) {
             boolean isMe = p.getUser().getId().equals(myUserId);
-            String displayName = isMe ? p.getUser().getName() : null;
-            result.add(new ParticipantPublicResponse(order++, displayName, isMe));
+            result.add(new ParticipantPublicResponse(
+                    order++,
+                    isMe ? p.getUser().getId() : null,
+                    isMe ? p.getUser().getName() : null,
+                    isMe,
+                    "CONFIRMED"
+            ));
         }
         return result;
     }
 
-    public record ParticipantPublicResponse(int order, String name, boolean isMe) {}
+    public record ParticipantPublicResponse(
+            int order,
+            Long userId,
+            String userName,
+            boolean isMe,
+            String status
+    ) {}
 }

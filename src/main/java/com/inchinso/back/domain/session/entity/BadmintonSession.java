@@ -28,7 +28,7 @@ public class BadmintonSession {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by", nullable = false)
-    private User createdBy; // 생성한 운영진
+    private User createdBy;
 
     @Column(nullable = false)
     private LocalDate sessionDate;
@@ -43,7 +43,7 @@ public class BadmintonSession {
     private String location;
 
     @Column(columnDefinition = "TEXT")
-    private String rules; // 수칙
+    private String rules;
 
     @Builder.Default
     @Column(nullable = false)
@@ -53,6 +53,9 @@ public class BadmintonSession {
     @Builder.Default
     @Column(nullable = false)
     private SessionStatus status = SessionStatus.OPEN;
+
+    @Column
+    private LocalDateTime openAt; // 참가 신청 오픈 시간 (null이면 즉시 오픈)
 
     @CreationTimestamp
     private LocalDateTime createdAt;
@@ -66,12 +69,14 @@ public class BadmintonSession {
     }
 
     public void update(LocalDate date, LocalTime startTime, LocalTime endTime,
-                       String location, String rules, int maxParticipants) {
+                       String location, String rules, int maxParticipants,
+                       LocalDateTime openAt) {
         this.sessionDate = date;
         this.startTime = startTime;
         this.endTime = endTime;
         this.location = location;
         this.rules = rules;
         this.maxParticipants = maxParticipants;
+        this.openAt = openAt;
     }
 }

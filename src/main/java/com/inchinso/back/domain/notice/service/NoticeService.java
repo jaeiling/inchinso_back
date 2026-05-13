@@ -72,10 +72,8 @@ public class NoticeService {
         Notice notice = getNoticeById(noticeId);
         notice.update(title, content, pinned);
 
+        // 기존 이미지 유지 + 새 이미지 추가
         if (newImages != null && !newImages.isEmpty()) {
-            // 기존 이미지 S3에서 삭제
-            notice.getImages().forEach(img -> s3Service.delete(img.getS3Key()));
-            notice.getImages().clear();
             uploadImages(notice, newImages);
         }
     }
@@ -89,6 +87,7 @@ public class NoticeService {
 
     private void uploadImages(Notice notice, List<MultipartFile> images) {
         List<NoticeImage> noticeImages = new ArrayList<>();
+        int startOrder = notice.getImages().size(); // 기존 이미지 개수 이후부터 순서 부여
         for (int i = 0; i < images.size(); i++) {
             String url = s3Service.upload(images.get(i), "notices");
             String key = s3Service.getKey(url);
@@ -96,7 +95,7 @@ public class NoticeService {
                     .notice(notice)
                     .imageUrl(url)
                     .s3Key(key)
-                    .sortOrder(i)
+                    .sortOrder(startOrder + i)
                     .build());
         }
         notice.getImages().addAll(noticeImages);

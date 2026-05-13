@@ -1,7 +1,6 @@
 package com.inchinso.back.domain.user.service;
 
 import com.inchinso.back.domain.attendance.repository.AttendanceRepository;
-import com.inchinso.back.domain.participation.entity.ParticipationStatus;
 import com.inchinso.back.domain.participation.repository.ParticipationRepository;
 import com.inchinso.back.domain.user.entity.Role;
 import com.inchinso.back.domain.user.entity.User;
@@ -11,6 +10,7 @@ import com.inchinso.back.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -23,7 +23,6 @@ public class UserService {
     private final ParticipationRepository participationRepository;
     private final AttendanceRepository attendanceRepository;
 
-    /** 내 정보 조회 */
     @Transactional(readOnly = true)
     public MyInfoResponse getMyInfo(Long userId) {
         User user = getUser(userId);
@@ -42,7 +41,6 @@ public class UserService {
         );
     }
 
-    /** 전체 회원 목록 조회 (운영진 전용) */
     @Transactional(readOnly = true)
     public List<MemberResponse> getAllMembers() {
         return userRepository.findAll().stream()
@@ -57,17 +55,14 @@ public class UserService {
                 .toList();
     }
 
-    /** 회원 삭제 (비활성화) - 운영진 전용 */
     @Transactional
     public void deactivateUser(Long adminId, Long targetUserId) {
         if (adminId.equals(targetUserId)) {
             throw new CustomException(ErrorCode.CANNOT_DEACTIVATE_SELF);
         }
-        User target = getUser(targetUserId);
-        target.deactivate();
+        getUser(targetUserId).deactivate();
     }
 
-    /** 권한 승계 - 운영진 전용 */
     @Transactional
     public void transferAdmin(Long currentAdminId, Long targetUserId) {
         User currentAdmin = getUser(currentAdminId);
@@ -76,18 +71,23 @@ public class UserService {
         target.updateRole(Role.ADMIN);
     }
 
-    /** 특정 회원에게 운영진 권한 부여 */
     @Transactional
     public void grantAdmin(Long targetUserId) {
-        User target = getUser(targetUserId);
-        target.updateRole(Role.ADMIN);
+        getUser(targetUserId).updateRole(Role.ADMIN);
     }
 
-    /** 특정 회원 운영진 해제 */
     @Transactional
     public void revokeAdmin(Long targetUserId) {
-        User target = getUser(targetUserId);
-        target.updateRole(Role.USER);
+        getUser(targetUserId).updateRole(Role.USER);
+    }
+
+    /** 내 이름 수정 */
+    @Transactional
+    public void updateMyName(Long userId, String name) {
+        if (!StringUtils.hasText(name) || name.isBlank()) {
+            throw new CustomException(ErrorCode.NAME_REQUIRED);
+        }
+        getUser(userId).updateName(name.trim());
     }
 
     private User getUser(Long userId) {

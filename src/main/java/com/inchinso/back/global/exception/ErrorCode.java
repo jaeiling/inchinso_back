@@ -36,6 +36,7 @@ public enum ErrorCode {
     ALREADY_PARTICIPATED(HttpStatus.CONFLICT, "이미 신청한 모임입니다."),
     PARTICIPATION_NOT_FOUND(HttpStatus.NOT_FOUND, "신청 내역을 찾을 수 없습니다."),
     NOT_PARTICIPATED(HttpStatus.BAD_REQUEST, "해당 모임에 신청하지 않았습니다."),
+    PARTICIPATION_NOT_OPEN(HttpStatus.BAD_REQUEST, "아직 참가 신청 시간이 아닙니다."),
 
     // Court
     INVALID_COURT_NUMBER(HttpStatus.BAD_REQUEST, "코트 번호는 1~5 사이여야 합니다."),

@@ -57,10 +57,11 @@ public class SessionService {
                 .createdBy(admin)
                 .sessionDate(req.sessionDate())
                 .startTime(req.startTime())
-                .endTime(req.endTime())
+                .endTime(req.endTime() != null ? req.endTime() : req.startTime())
                 .location(req.location())
                 .rules(req.rules())
                 .maxParticipants(req.maxParticipants() > 0 ? req.maxParticipants() : 16)
+                .openAt(req.openAt())
                 .build();
 
         return sessionRepository.save(session).getId();
@@ -69,8 +70,15 @@ public class SessionService {
     @Transactional
     public void updateSession(Long sessionId, SessionCreateRequest req) {
         BadmintonSession session = getSession(sessionId);
-        session.update(req.sessionDate(), req.startTime(), req.endTime(),
-                req.location(), req.rules(), req.maxParticipants());
+        session.update(
+                req.sessionDate(),
+                req.startTime(),
+                req.endTime() != null ? req.endTime() : req.startTime(),
+                req.location(),
+                req.rules(),
+                req.maxParticipants(),
+                req.openAt()
+        );
     }
 
     @Transactional
@@ -110,30 +118,39 @@ public class SessionService {
         int confirmed = participationRepository.countConfirmedBySessionId(s.getId());
         return new SessionSummaryResponse(
                 s.getId(), s.getSessionDate(), s.getStartTime(), s.getEndTime(),
-                s.getLocation(), s.getMaxParticipants(), confirmed, s.getStatus().name()
+                s.getLocation(), s.getMaxParticipants(), confirmed, s.getStatus().name(),
+                s.getOpenAt()
         );
     }
 
     private SessionDetailResponse toDetail(BadmintonSession s, int confirmed) {
         return new SessionDetailResponse(
                 s.getId(), s.getSessionDate(), s.getStartTime(), s.getEndTime(),
-                s.getLocation(), s.getRules(), s.getMaxParticipants(), confirmed, s.getStatus().name()
+                s.getLocation(), s.getRules(), s.getMaxParticipants(), confirmed,
+                s.getStatus().name(), s.getOpenAt()
         );
     }
 
     public record SessionCreateRequest(
-            LocalDate sessionDate, LocalTime startTime, LocalTime endTime,
-            String location, String rules, int maxParticipants
+            LocalDate sessionDate,
+            LocalTime startTime,
+            LocalTime endTime,
+            String location,
+            String rules,
+            int maxParticipants,
+            LocalDateTime openAt
     ) {}
 
     public record SessionSummaryResponse(
             Long id, LocalDate sessionDate, LocalTime startTime, LocalTime endTime,
-            String location, int maxParticipants, int confirmedCount, String status
+            String location, int maxParticipants, int confirmedCount, String status,
+            LocalDateTime openAt
     ) {}
 
     public record SessionDetailResponse(
             Long id, LocalDate sessionDate, LocalTime startTime, LocalTime endTime,
-            String location, String rules, int maxParticipants, int confirmedCount, String status
+            String location, String rules, int maxParticipants, int confirmedCount,
+            String status, LocalDateTime openAt
     ) {}
 
     public record ParticipantResponse(Long userId, String name, LocalDateTime appliedAt) {}
