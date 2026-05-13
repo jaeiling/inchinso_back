@@ -127,7 +127,7 @@ public class ParticipationService {
                     isMe ? p.getUser().getId() : null,
                     isMe ? p.getUser().getName() : null,
                     isMe,
-                    p.getStatus().name().toLowerCase()  // 소문자로 반환
+                    p.getStatus().name()  // 대문자로 원상복귀
             ));
         }
         return result;
