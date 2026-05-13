@@ -29,7 +29,6 @@ public class ParticipationService {
 
     @Transactional
     public void apply(Long userId, Long sessionId) {
-        // 비관적 락으로 세션 조회 - 동시 신청 방지
         BadmintonSession session = sessionRepository.findByIdWithLock(sessionId)
                 .orElseThrow(() -> new CustomException(ErrorCode.SESSION_NOT_FOUND));
 
@@ -38,7 +37,6 @@ public class ParticipationService {
             throw new CustomException(ErrorCode.SESSION_CLOSED);
         }
 
-        // 오픈 시간 체크 (null이면 즉시 오픈)
         if (session.getOpenAt() != null &&
             LocalDateTime.now().isBefore(session.getOpenAt())) {
             throw new CustomException(ErrorCode.PARTICIPATION_NOT_OPEN);
@@ -53,10 +51,8 @@ public class ParticipationService {
                 p.getStatus() == ParticipationStatus.WAITING) {
                 throw new CustomException(ErrorCode.ALREADY_PARTICIPATED);
             }
-            // 취소 후 재신청
             int currentCount = participationRepository.countConfirmedBySessionId(sessionId);
             if (currentCount >= session.getMaxParticipants()) {
-                // 정원 초과 → 대기자로 재신청
                 p.reactivateAsWaiting();
             } else {
                 p.reactivate();
@@ -81,8 +77,7 @@ public class ParticipationService {
 
     @Transactional
     public void cancel(Long userId, Long sessionId) {
-        // 비관적 락으로 세션 조회 - 취소 시 대기자 승격 동시성 처리
-        BadmintonSession session = sessionRepository.findByIdWithLock(sessionId)
+        sessionRepository.findByIdWithLock(sessionId)
                 .orElseThrow(() -> new CustomException(ErrorCode.SESSION_NOT_FOUND));
 
         Participation participation = participationRepository
@@ -96,7 +91,6 @@ public class ParticipationService {
         boolean wasConfirmed = participation.getStatus() == ParticipationStatus.CONFIRMED;
         participation.cancel();
 
-        // 확정 참가자가 취소한 경우 → 대기자 1순위 자동 승격
         if (wasConfirmed) {
             List<Participation> waiting =
                     participationRepository.findWaitingBySessionIdOrderByCreatedAt(sessionId);
@@ -116,7 +110,6 @@ public class ParticipationService {
 
     @Transactional(readOnly = true)
     public List<ParticipantPublicResponse> getParticipantsPublic(Long sessionId, Long myUserId) {
-        // CONFIRMED 먼저, 그 다음 WAITING 순으로 조회
         List<Participation> active = participationRepository.findActiveBySessionId(sessionId);
 
         List<ParticipantPublicResponse> result = new ArrayList<>();
@@ -134,7 +127,7 @@ public class ParticipationService {
                     isMe ? p.getUser().getId() : null,
                     isMe ? p.getUser().getName() : null,
                     isMe,
-                    p.getStatus().name()
+                    p.getStatus().name().toLowerCase()  // 소문자로 반환
             ));
         }
         return result;
